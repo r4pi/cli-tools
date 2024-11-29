@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+
+"""
+Utility for working with CRAN-like package repositories from the command line
+"""
+
+import argparse
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
+
+
+CRANULE_VERSION = "0.1.0"
+R_BIN = shutil.which("R")
+
+
+def r_available(r_bin):
+    """
+    Check if R is available.
+
+    Args:
+        r_bin: output from shutil.which()
+
+    Returns:
+        True
+    """
+    if r_bin is None:
+        print(
+            "Error: R not found. Please make sure R is installed and on the PATH and try again."
+        )
+        sys.exit(2)
+
+    return True
+
+
+def is_cranule(path, stop=True):
+    """
+    Check if PATH is a cranule repository
+
+    Args:
+        path: (str) Path to a directory
+        stop: (bool) Whether to stop execution and quit the program
+
+    Returns:
+        bool
+    """
+    cpath = os.path.join(
+        path,
+        "cranule.cfg",
+    )
+
+    if not os.path.exists(cpath):
+        if stop:
+            print(f"Error: No cranule repository found at {path}.")
+            sys.exit(3)
+        else:
+            return False
+
+    return True
+
+
+def new_repo(path):
+    """
+    Create a new cranule repository
+
+    Args:
+        path: (str) path to create new repo in
+
+    Returns:
+        path: (str) path to the newly created repo
+    """
+    # Check if there's already a cranule repo at the supplied path
+    if is_cranule(path, stop=False):
+        print(f"Error: cranule directory already exists at: {path}")
+        sys.exit(4)
+
+    if os.path.exists(path):
+        try:
+            dir_contents = os.listdir(path)
+        except NotADirectoryError:
+            print(f"Error: directory problem, perhaps it's a file? {path}")
+            sys.exit(5)
+
+        if len(dir_contents) != 0:
+            print(f"Error: directory not empty, {path}")
+            sys.exit(5)
+        else:
+            print("Empty directory")
+
+    else:
+        # path doesn;t exist yet
+        pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+
+
+def run_subprocess(command, **kwargs):
+    """
+    Run a subprocess and handle potential exceptions.
+
+    Args:
+        command (str): The command to run.
+        **kwargs: Additional arguments to pass to the subprocess.
+
+    Returns:
+        int: The exit code of the subprocess.
+    """
+
+    try:
+        # Create a subprocess object
+        with subprocess.Popen(command, **kwargs) as process:
+
+            # Wait for the process to finish and get its exit code
+            return_code = process.wait()
+
+        # print(f"Subprocess exited with code {return_code}")
+
+        if return_code != 0:
+            # raise subprocess.SubprocessError("Subprocess returned non-zero exit code")
+            print("R subprocess returned non-zero exit code {return_code}")
+            sys.exit(return_code)
+
+    except subprocess.CalledProcessError as e:
+        print(f"Subprocess returned error code: {e.returncode}")
+        raise
+    except Exception as e:
+        print(f"An unexpected error occurred: {str(e)}")
+        raise
+
+
+def main():
+    """
+    main
+    """
+
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog="For more info see: https://sellorm.com",
+    )
+    # Add arguments
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Path to the repository (default: %(default)s)",
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "-n",
+        "--new",
+        action="store_true",
+        help="Create a new CRANule repository",
+    )
+    group.add_argument(
+        "-a", "--add", dest="PKG_PATH", help="Adds a package to an existing repository"
+    )
+
+    group.add_argument(
+        "-u", "--update", action="store_true", help="Update PACKAGES file"
+    )
+
+    parser.add_argument(
+        "-i", "--rinfo", action="store_true", help="Display R version info and exit"
+    )
+
+    parser.add_argument(
+        "-v", "--version", action="store_true", help="Display cranule version and exit"
+    )
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    # Handle the 'version' argument
+    if args.version:
+        print(f"CRANule {CRANULE_VERSION}")
+        return
+
+    # handle r info request
+    if args.rinfo and r_available(R_BIN):
+        run_subprocess(
+            [
+                R_BIN,
+                "-s",
+                "-e",
+                'cat(paste0("R ", version$major, ".", version$minor, "\n"))',
+            ]
+        )
+
+    # handle new repo creation
+    if args.new and r_available(R_BIN):
+        new_repo(args.path)
+        run_subprocess(
+            [
+                R_BIN,
+                "-s",
+                "-e",
+                'tools::write_PACKAGES(type = "source", verbose = TRUE)||stop()',
+            ]
+        )
+
+    # handle 'update' argument
+    if args.update and r_available(R_BIN):
+        run_subprocess(
+            [
+                R_BIN,
+                "-s",
+                "-e",
+                'tools::update_PACKAGES(type = "source", verbose.level = 1)||stop()',
+            ]
+        )
+
+
+if __name__ == "__main__":
+    main()

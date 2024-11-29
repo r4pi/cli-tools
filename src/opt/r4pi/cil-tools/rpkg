@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+
+"""
+Simple wrapper for wroking with R packages from the command line
+"""
+
+import argparse
+import subprocess
+
+RPKG_VERSION = "0.1.0"
+
+
+def run_subprocess(command, **kwargs):
+    """
+    Run a subprocess and handle potential exceptions.
+
+    Args:
+        command (str): The command to run.
+        **kwargs: Additional arguments to pass to the subprocess.
+
+    Returns:
+        int: The exit code of the subprocess.
+    """
+
+    try:
+        # Create a subprocess object
+        process = subprocess.Popen(command, **kwargs)
+
+        # Wait for the process to finish and get its exit code
+        return_code = process.wait()
+
+        # print(f"Subprocess exited with code {return_code}")
+
+        if return_code != 0:
+            raise subprocess.SubprocessError("Subprocess returned non-zero exit code {return_code}")
+
+    except subprocess.CalledProcessError as e:
+        print(f"Subprocess returned error code: {e.returncode}")
+        raise
+    except Exception as e:
+        print(f"An unexpected error occurred: {str(e)}")
+        raise
+
+
+def main():
+    """
+    main
+    """
+    parser = argparse.ArgumentParser(
+        description="Utilities for working with R from the command line"
+    )
+
+    # Add arguments
+    parser.add_argument(
+        "-c",
+        "--check",
+        action="store_true",
+        help="Runs R CMD check against a package",
+    )
+    parser.add_argument(
+        "-d",
+        "--document",
+        action="store_true",
+        help="Generates package documentation. Runs devtools::document()",
+    )
+    parser.add_argument(
+        "-n",
+        "--new",
+        dest="PKG_PATH",
+        help="Create a new package at PKG_PATH",
+    )
+    parser.add_argument(
+        "-s",
+        "--style",
+        action="store_true",
+        help="Applies tidyverse style to a package. Runs styler::style_pkg()",
+    )
+    parser.add_argument(
+        "-t",
+        "--test",
+        action="store_true",
+        help="Runs tests against a package. Runs devtools::test()",
+    )
+    parser.add_argument(
+        "-v", "--version", action="store_true", help="Display version info and exit"
+    )
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    # Handle the 'version' argument
+    if args.version:
+        print(f"Version {RPKG_VERSION}")
+        return
+
+    if args.check:
+        run_subprocess(["R", "-s" "-e", "devtools::check()"])
+
+    if args.document:
+        run_subprocess(["R", "-s", "-e", "devtools::document()"])
+
+    if args.PKG_PATH:
+        create_func=f"usethis::create_package('{args.PKG_PATH}')"
+        run_subprocess(["R", "-s", "-e", create_func])
+
+    if args.style:
+        run_subprocess(["R", "-s", "-e", "styler::style_pkg()"])
+
+    if args.test:
+        run_subprocess(["R", "-s", "-e", "devtools::test()"])
+
+
+if __name__ == "__main__":
+    main()

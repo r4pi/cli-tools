@@ -1,0 +1,27 @@
+# This is an example nfpm configuration file.
+# Make sure to check the documentation at https://nfpm.goreleaser.com
+#
+# The lines below are called `modelines`. See `:help modeline`
+# Feel free to remove those if you don't want/need to use them.
+# yaml-language-server: $schema=https://nfpm.goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+name: "r4pi-cli-tools"
+arch: "all"
+platform: "linux"
+version: "0.1.0"
+section: "default"
+priority: "extra"
+provides:
+  - bar
+depends:
+  - python3
+maintainer: "Mark Sellors <r4pi@5vcc.com>"
+description: |
+  A small collection of command line tools for working with R
+vendor: "R4Pi"
+homepage: "http://r4pi.org"
+license: "MIT"
+contents:
+  - src: ./src
+    dst: /
